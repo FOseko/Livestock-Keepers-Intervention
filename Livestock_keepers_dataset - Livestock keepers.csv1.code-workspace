@@ -1,0 +1,195 @@
+{
+	"folders": [],
+	"launch": {
+		"version": "0.2.0",
+		"configurations": []
+	}
+}---
+title: "Livestock Keepers Intervention"
+author: "Fredrick Oseko"
+date: "May 27, 2024"
+output: html_document
+---
+setting a working directory 
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+setwd("C:/Users/Documents/R/datasets")
+```
+
+Libraries
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(magrittr)
+```
+
+Reading Data
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+livestock<-read_csv("Livestock_keepers_dataset - Livestock keepers.csv")
+```
+
+
+Data Quality Issues.
+
+1. Incomplete Data  
+Most of the fields have blanks and creating incosistence in the data set, to fix this kind of change is to incooperate validation restrictions in data collection toolkit.
+
+2. Publishing 
+Some of the fields that has been published the least matter because we already have aggregrate field to the same. i.e What kind of improved farming practices have you used? is the aggregate column for other 7 columns. To overcome this challege i would publish only the aggrigated field cell information separated with commas just incase the record has more than one entry.
+
+3. Incorrect enteries 
+Wrong data entries. i.e What kind of improved farming practices have you used?/Other (Specify), there zero as entries rather than other reasons of respondents improved farming practises. This challege can be fixed by introducing validation rules in designing data collection tool kit that will not allow the person capturing data to enter eronious values.This is illustrated below.
+```{r}
+livestock %>% 
+  distinct(livestock$`What kind of improved farming practices have you used?/Other (Specify)`)
+```
+
+4. Outliers 
+Some of the field have outliers, i.e thes size of herds the pastolist pocess have huges difference. this is illustrated in the boxplot below.
+```{r}
+livestock %>% 
+  filter(`How many sheep do you have at the moment?`<1500) %>% 
+  ggplot(aes(`Gender of the respondent`,`How many sheep do you have at the moment?`))+
+  geom_boxplot(aes(color =`Gender of the respondent`))+
+  theme_minimal()+
+  labs(title = "Distribution of Sheep Herd per Gender of Pastoralist",
+       x="Gender of the pastoralist",
+       y="Number of sheep",
+       caption = "Source:Livestock Keepers Intervention")
+  
+```
+
+Segmentation of pastoralists
+Basis my segmentation is main occupation of the respondent
+
+Why choose k means
+segmentation process entails generating segments or sub groups that share the common attributes or charactristics and i.e analysis we generate clusters of pastolist based on their main occupation, size of their herd and household size as well. My choice of K-means in clustering is because k-mean algorithm is best suited in finding groups which have not been explicitly labeled in the data.
+
+
+Two segments would be appropriate for this process, because the pastorist main occupation its livestock keeping which forms the first segment and rest which include employment, business,crop farming and others form the second segment.
+
+The following are segment to of the data.
+
+1. Pastorist asset improvement
+
+2. Farming practices 
+
+3. Management of the herd in wet and dry seasons
+
+4. Pastorist income 
+
+5. Size of the herd
+
+
+Patrolist asset improvement 
+```{r}
+practise_improve<-livestock %>% 
+  mutate(improved=`How many IMPROVED breed of goats do you have?`+`How many IMPROVED breed of sheep do you have?`+`How many IMPROVED breed of cow do you have?`) %>% 
+  mutate(herd_size=`How many goats do you have at the moment?`+`How many goats do you have at the moment?`+`How many cows do you have at the moment?`) %>% 
+  select(herd_size,improved,`What kind of improved farming practices have you used?`) %>% 
+  filter(herd_size<2500)
+
+practise_improve<- na.omit(practise_improve)
+```
+
+k means clustering pastrolist asset improvement 
+```{r}
+set.seed(20)
+practise_Cluster <- kmeans(practise_improve[1:2], 3, nstart = 20)
+practise_Cluster
+```
+
+```{r}
+table(practise_Cluster$cluster,practise_improve$`What kind of improved farming practices have you used?`)
+practise_Cluster$cluster <- as.factor(practise_Cluster$cluster)
+```
+
+Ploting asset improvement
+```{r}
+practise_improve %>% 
+   ggplot(aes(improved,herd_size,color = practise_Cluster$cluster)) + 
+  geom_point()+
+  theme_minimal()+
+  facet_wrap(~practise_Cluster$cluster,ncol = 3)+
+  labs(title = "Pastolist herd size and farming practises they carry",
+       x="Improved herd (Cow's,Sheep's, Goat's)",
+       y="size of herd",
+       caption = "Source:Livestock Keepers Interventiont")
+```
+
+
+Management of the herd in wet and dry seasons
+```{r}
+cost_price<-livestock %>% 
+  mutate(dryseason_cost=`How much do you spend on average in managing your sheep during the dry season?`+`How much do you spend on average in managing your goats during the dry season?`+`How much do you spend on average in managing your cows during the dry season?`) %>% 
+  mutate(wetseason_cost=`How much do you spend on average in managing your goats during the WET season?`+`How much do you spend on average in managing your sheep during the WET season?`+`How much do you spend on average in managing your cows during the WET season?`) %>% 
+  mutate(selling_price=`What is the average selling price of a goat`+`What is the average selling price of a sheep`+`What is the average selling price of a cow`) %>% 
+  select(wetseason_cost,dryseason_cost,selling_price)
+
+cost_price<- na.omit(cost_price)
+```
+
+
+```{r}
+set.seed(20)
+cost_Cluster <- kmeans(cost_price[1:2], 3, nstart = 20)
+cost_Cluster
+```
+
+
+```{r}
+table(cost_Cluster$cluster,cost_price$selling_price)
+cost_Cluster$cluster <- as.factor(cost_Cluster$cluster)
+```
+
+```{r}
+cost_price %>% 
+   ggplot(aes(wetseason_cost,dryseason_cost,color = cost_Cluster$cluster)) + 
+  geom_point()+
+  theme_minimal()+
+  facet_wrap(~cost_Cluster$cluster,ncol = 3)+
+   labs(title = "Pastorist Selling and Cost Managenent of the herds",
+       x="Herd managent cost in wet season",
+       y="Herd management cost in dry season",
+       caption = "Source:Livestock Keepers Intervention")
+```
+The graph indicates three management cost cluster of the herd in dry and wet seasons,cluster two has low management cost whereas cluster one has the highest management cost
+
+```{r}
+#generating sum of household size, number of the herd Pastoralist has and filtering herd outleir. 
+livestock_train<-livestock %>% 
+  mutate(household_size=`Household Size (Male)`+`Household Size (Female)`) %>% 
+  mutate(number_livestock=`How many cows do you have at the moment?`+`How many sheep do you have at the moment?`+`How many goats do you have at the moment?`) %>% 
+  select(number_livestock,household_size,`Main occupation of the respondent`,everything()) %>% 
+  filter(number_livestock <2500)
+```
+
+Clustering using k means
+```{r}
+set.seed(20)
+livestock_Cluster <- kmeans(livestock_train[1:2], 2, nstart = 20)
+livestock_Cluster
+```
+
+```{r}
+table(livestock_Cluster$cluster, livestock_train$`Main occupation of the respondent`)
+```
+
+plotting the obtained clusters 
+```{r}
+livestock_Cluster$cluster <- as.factor(livestock_Cluster$cluster)
+
+livestock_train %>% 
+   ggplot(aes(household_size,number_livestock,color = livestock_Cluster$cluster)) + 
+  geom_point()+
+  theme_minimal()+
+  facet_wrap(~livestock_Cluster$cluster,ncol = 3)+
+  labs(title = "Clustered Pastoralist Categories",
+       subtitle = "clustered number of pastorist by number of herds they posses and family size",
+       x="House hold size of pastoralist",
+       y="Number of Herds (Cow's,Sheep's, Goat's)",
+       caption = "Source:Livestock Keepers Intervention")
+```
+
+Graph indicates that Small house hold size has small number of herds whereas large herds belong to pastorist who have mediumhouse hold size.
+
+
+
